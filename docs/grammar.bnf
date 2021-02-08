@@ -1,0 +1,98 @@
+# Source code is interpreted as a sequence of Unicode code points encoded in UTF-8.
+# This Extended Backus-Naur Form grammar defines the syntax of the K programming language.
+
+# This lexical grammar specifies a syntax that is a regular language:
+
+# Characters: The following production rules denote Unicode characters:
+unicode_char  = # All unicode codepoints except U+000A
+newline       = U+000A ;
+letter        = "a" ... "z" | "A" ... "Z" | "_" ;
+decimal_digit = "0" ... "9" ;
+binary_digit  = "0" | "1" ;
+octal_digit   = "0" ... "7" ;
+hex_digit     = "0" ... "9" | "A" ... "F" | "a" ... "f" ;
+whitespace    = U+0020 | U+0009 | U+000D | U+000A ;
+
+# Tokens: Tokens form the vocabulary of K. There are five types of tokens:
+# identifiers, keywords, symbols, and literals.
+
+# Semicolon elision: Semicolons are automatically inserted at the end of a line
+# if the final token follows these rules:
+# 1. an identifier
+# 2. an integer, floating-point, character, or string literals
+# 3. one of the keywords: break, continue, or return
+# 4. one of the symbols: ++, --, ), ], or }
+
+identifier = <letter> ( <letter> | <decimal_digit> )+ ;
+
+keyword    = "fn"
+           | "if"
+           | "else"
+           | "for"
+           | "while"
+           | "enum"
+           | "struct"
+           | "break"
+           | "let"
+           | "continue"
+           | "true"
+           | "false"
+           | "match"
+           | "return" ;
+
+# TODO(kosi): Add bitwise operators
+symbol     = "+"
+           | "-"
+           | "/"
+           | "%"
+           | "*"
+           | "=="
+           | "!="
+           | ">"
+           | "<"
+           | ">="
+           | "<="
+           | "!"
+           | ";"
+           | ":"
+           | ","
+           | "?"
+           | "=>"
+           | "||"
+           | "&&"
+           | "++"
+           | "--"
+           | "+="
+           | "-="
+           | "/="
+           | "%="
+           | "*="
+           | "("
+           | ")"
+           | "{"
+           | "}"
+           | "["
+           | "]"
+           | "."
+           | "=" ;
+
+# Integer literals: Sequence of digits representing an integer constant.
+# Optional prefix (0x, 0b, 0o) sets the non-decimal base.
+
+decimal_literal = "0" | ( "1" ... "9" "_"? <decimal_digits>? ) ;
+binary_literal  = "0" ( "b" | "B" ) "_"? <binary_digits>? ;
+octal_literal   = "0" ( "o" | "O" ) "_"? <octal_digits>? ;
+hex_literal     = "0" ( "x" | "X" ) "_"? <hex_digits>? ;
+
+decimal_digits = <decimal_digit> "_"? <decimal_digits>? ;
+binary_digits  = <binary_digit> "_"? <binary_digits>? ;
+octal_digits   = <octal_digit> "_"? <octal_digits>? ;
+hex_digits     = <hex_digit> "_"? <hex_digits>? ;
+
+# Character literals
+char_literal  = "'" <unicode_value> "'" ;
+unicode_value = <unicode_char> ;
+
+# String literals
+string_literal        = normal_string_literal ;
+normal_string_literal = "\"" <unicode_value>* "\""
