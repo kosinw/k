@@ -1,4 +1,4 @@
-let std = import("std")
+import std
 
 fn main(): void {
     let fifteen = 15
@@ -7,7 +7,7 @@ fn main(): void {
     let difference = -20 - fifteen
     let product = fifteen * 88
     let quotient = fifteen / 2
-    let integerQuotient = fifteen // 5
+    let integerQuotient = fifteen
 
     std.println(sum)
     std.println(difference)

@@ -1,4 +1,4 @@
-let std = import("std")
+import std
 let println = std.println
 
 /*

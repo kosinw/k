@@ -1,4 +1,4 @@
-let std = import("std")
+import std
 
 fn fib(n: i32): i32 {
     // This switch statement is similar to the match statement from Rust
