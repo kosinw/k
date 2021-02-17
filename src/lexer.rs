@@ -103,6 +103,59 @@ impl Lexer {
         buffer
     }
 
+    // TODO(kosi): Come back and add universal/unicode characters
+    fn read_escaped_char_literal(&mut self) -> Option<char> {
+        self.read_char();
+
+        match self.current_char {
+            Some('\'') | Some('\"') | Some('\\') => self.current_char,
+            Some('t') => Some('\t'),
+            Some('n') => Some('\n'),
+            Some('f') => Some('\x0C'),
+            Some('r') => Some('\r'),
+            Some('v') => Some('\x0B'),
+            _ => None, // TODO(kosi): Add unknown escape character error here
+        }
+    }
+
+    fn read_char_literal(&mut self) -> Option<char> {
+        self.read_char();
+
+        let ret = if self.current_char == Some('\\') {
+            self.read_escaped_char_literal()
+        } else {
+            self.current_char
+        };
+
+        self.read_char();
+
+        // TODO(kosi): Generate some error message here
+        if self.current_char != Some('\'') {
+            None
+        } else {
+            ret
+        }
+    }
+
+    fn read_string_literal(&mut self) -> Option<String> {
+        let mut buf = String::new();
+        
+        loop {
+            self.read_char();
+
+            match self.current_char {
+                None => return None, // TODO(kosi): Add unterminated string error here
+                Some('"') => return Some(buf),
+                Some('\\') => {
+                    if let Some(ch) = self.read_escaped_char_literal() {
+                        buf.push(ch);
+                    }
+                },
+                Some(ch) => buf.push(ch)
+            }
+        }
+    }
+
     fn read_decimal_literal(&mut self) -> i64 {
         let mut buffer = String::new();
 
@@ -127,17 +180,37 @@ impl Lexer {
         }
     }
 
+    fn skip_line(&mut self) {
+        loop {
+            let next_ch = self.read_char();
+
+            if next_ch == None || next_ch == Some('\n') {
+                break;
+            }
+        }
+    }
+
+    // TODO(kosi): Fix this function so it doesn't look like this mess
     fn skip_whitespace(&mut self) {
         loop {
             if let Some(current_char) = self.current_char {
                 if current_char != '\n' && current_char.is_whitespace() {
                     self.read_char();
-                } else {
-                    break;
+                    continue;
+                } else if current_char == '/' {
+                    if let Some(next_ch) = self.peek_char() {
+                        if next_ch == '/' {
+                            self.read_char();
+                            self.skip_line();
+                            break;
+                        }
+                    }
                 }
-            } else {
+
                 break;
             }
+
+            break;
         }
     }
 }
@@ -145,6 +218,10 @@ impl Lexer {
 impl Iterator for Lexer {
     type Item = Token;
 
+    // TODO(kosi): Rewrite this to take errors into account
+    // maybe call an error method that accumulates errors in an
+    // internal buffer in Lexer struct?
+    //
     fn next(&mut self) -> Option<Self::Item> {
         self.skip_whitespace();
 
@@ -172,7 +249,7 @@ impl Iterator for Lexer {
                     self.read_char();
                     TokenKind::Symbol(SymbolKind::NotEq)
                 }
-                _ => TokenKind::Symbol(SymbolKind::Bang)
+                _ => TokenKind::Symbol(SymbolKind::Bang),
             },
             Some('-') => TokenKind::Symbol(SymbolKind::Minus),
             Some('*') => TokenKind::Symbol(SymbolKind::Asterisk),
@@ -181,6 +258,23 @@ impl Iterator for Lexer {
             Some('/') => TokenKind::Symbol(SymbolKind::Slash),
             Some('%') => TokenKind::Symbol(SymbolKind::Mod),
             Some('\n') => TokenKind::Newline,
+            Some('\'') => {
+                let lit = self.read_char_literal();
+                if let Some(l) = lit {
+                    TokenKind::CharLiteral(l)
+                } else {
+                    TokenKind::Illegal
+                }
+            }
+            Some('"') => {
+                let lit = self.read_string_literal();
+
+                if let Some(l) = lit {
+                    TokenKind::StringLiteral(l)
+                } else {
+                    TokenKind::Illegal
+                }
+            }
             Some(ch) => {
                 if Lexer::is_alpha(ch) {
                     let ident = self.read_identifier();
@@ -220,6 +314,79 @@ mod tests {
     use crate::token::*;
 
     #[test]
+    fn test_string_literals() {
+        let input = " \"test\"
+        \"newline\n\"";
+
+        let tests = vec![
+            TokenKind::StringLiteral("test".to_owned()),
+            TokenKind::Newline,
+            TokenKind::StringLiteral("newline\n".to_owned())
+        ];
+
+        let mut lexer = Lexer::new(input);
+
+        for test in tests {
+            let token = lexer.next();
+
+            assert_eq!(test, token.unwrap().kind);
+        }
+    }
+
+    #[test]
+    fn test_comments() {
+        let input = "// no tokens
+        let token;";
+
+        let tests = vec![
+            TokenKind::Newline,
+            TokenKind::Keyword(KeywordKind::Let),
+            TokenKind::Identifier("token".to_owned()),
+            TokenKind::Symbol(SymbolKind::Semicolon)
+        ];
+
+        let mut lexer = Lexer::new(input);
+
+       for test in tests {
+           let token = lexer.next();
+
+           assert_eq!(test, token.unwrap().kind);
+       }
+    }
+
+    #[test]
+    fn test_char_literals() {
+        let input = r#"'a'
+        'c'
+        '\n'
+        '\\'
+        '\f'
+        'ew'"#;
+
+        let tests = vec![
+            TokenKind::CharLiteral('a'),
+            TokenKind::Newline,
+            TokenKind::CharLiteral('c'),
+            TokenKind::Newline,
+            TokenKind::CharLiteral('\n'),
+            TokenKind::Newline,
+            TokenKind::CharLiteral('\\'),
+            TokenKind::Newline,
+            TokenKind::CharLiteral('\x0C'),
+            TokenKind::Newline,
+            TokenKind::Illegal,
+        ];
+
+        let mut lexer = Lexer::new(input);
+
+        for test in tests {
+            let token = lexer.next();
+
+            assert_eq!(test, token.unwrap().kind);
+        }
+    }
+
+    #[test]
     fn test_tokens_3() {
         let input = "10 == 10; 10 != 9;";
 
@@ -231,7 +398,7 @@ mod tests {
             TokenKind::IntegerLiteral(10),
             TokenKind::Symbol(SymbolKind::NotEq),
             TokenKind::IntegerLiteral(9),
-            TokenKind::Symbol(SymbolKind::Semicolon)
+            TokenKind::Symbol(SymbolKind::Semicolon),
         ];
 
         let mut lexer = Lexer::new(input);
@@ -402,7 +569,5 @@ mod tests {
 
             assert_eq!(Some(test), tok);
         }
-
-        println!("{:?}", lexer.next())
     }
 }
