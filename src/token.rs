@@ -49,7 +49,7 @@ pub enum SymbolKind {
     Lt,
     Gt,
     LtEq,
-    GtEq
+    GtEq,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -63,6 +63,7 @@ pub enum TokenKind {
     Symbol(SymbolKind),
     Newline,
     Illegal,
+    EOF,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -72,10 +73,12 @@ pub struct Token {
 }
 
 impl Token {
+    pub const EOF: Token = Token {
+        kind: TokenKind::EOF,
+        position: BufferPosition { line: 0, column: 0 },
+    };
+
     pub fn new(kind: TokenKind, position: BufferPosition) -> Token {
-        Token {
-            kind,
-            position
-        }
+        Token { kind, position }
     }
 }

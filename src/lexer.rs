@@ -213,6 +213,15 @@ impl Lexer {
             break;
         }
     }
+
+    pub fn next_token(&mut self) -> Token {
+        let token = self.next();
+
+        match token {
+            None => Token::EOF,
+            Some(tok) => tok
+        }
+    }
 }
 
 impl Iterator for Lexer {
